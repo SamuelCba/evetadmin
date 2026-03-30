@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
-import 'official_store_screen.dart';
-import 'partner_store_edit_screen.dart';
+import 'store_products_screen.dart';
 
 /// Listado estilo secciones: primero "Mi tienda", luego tiendas verificadas.
 class StoresHubScreen extends StatefulWidget {
@@ -17,6 +16,67 @@ class _StoresHubScreenState extends State<StoresHubScreen> {
   bool _loading = true;
   Map<String, dynamic>? _myProfile;
   List<Map<String, dynamic>> _partners = [];
+
+  Widget _minimalStoreTile({
+    required Widget leading,
+    required String title,
+    required String subtitle,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E8EC)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                leading,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -45,41 +105,37 @@ class _StoresHubScreenState extends State<StoresHubScreen> {
   }
 
   Future<void> _openMyStore() async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    final name = _myProfile?['shop_name']?.toString().trim();
+    final email = _myProfile?['email']?.toString() ??
+        Supabase.instance.client.auth.currentUser?.email ??
+        '';
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (ctx) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Mi tienda'),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(ctx).pop(),
-            ),
-          ),
-          body: const Padding(
-            padding: EdgeInsets.all(16),
-            child: OfficialStoreScreen(),
-          ),
+        builder: (ctx) => StoreProductsScreen(
+          sellerId: uid,
+          storeTitle: (name != null && name.isNotEmpty) ? name : 'Mi tienda',
+          subtitle: email,
+          isOfficialAdminStore: true,
         ),
       ),
     );
     _refresh();
   }
 
-  Future<void> _openPartner(String profileId) async {
+  Future<void> _openPartner(Map<String, dynamic> p) async {
+    final profileId = p['id']?.toString() ?? '';
+    if (profileId.isEmpty) return;
+    final rawName = p['shop_name']?.toString().trim() ?? '';
+    final email = p['email']?.toString() ?? '';
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (ctx) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Editar tienda'),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(ctx).pop(),
-            ),
-          ),
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: PartnerStoreEditScreen(profileId: profileId),
-          ),
+        builder: (ctx) => StoreProductsScreen(
+          sellerId: profileId,
+          storeTitle: rawName.isNotEmpty ? rawName : 'Tienda',
+          subtitle: email,
+          isOfficialAdminStore: false,
         ),
       ),
     );
@@ -299,30 +355,23 @@ class _StoresHubScreenState extends State<StoresHubScreen> {
                 children: [
                   Text(
                     'Mi tienda',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: const Color(0xFF09CB6B).withValues(alpha: 0.15),
-                        child: const Icon(Icons.storefront, color: Color(0xFF09CB6B)),
-                      ),
-                      title: Text(
-                        (myName != null && myName.isNotEmpty) ? myName : 'Configurar mi tienda',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Text(
-                        myEmail.isNotEmpty ? myEmail : 'Tu cuenta administrador',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _openMyStore,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.4,
+                      color: Colors.grey.shade600,
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  _minimalStoreTile(
+                    onTap: _openMyStore,
+                    leading: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: const Color(0xFF09CB6B).withValues(alpha: 0.12),
+                      child: const Icon(Icons.storefront_rounded, color: Color(0xFF09CB6B)),
+                    ),
+                    title: (myName != null && myName.isNotEmpty) ? myName : 'Ver mi catálogo',
+                    subtitle: myEmail.isNotEmpty ? myEmail : 'Tu cuenta administrador',
                   ),
                   const SizedBox(height: 28),
                   Row(
@@ -330,32 +379,35 @@ class _StoresHubScreenState extends State<StoresHubScreen> {
                       Expanded(
                         child: Text(
                           'Tiendas verificadas',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
                       FilledButton.icon(
                         onPressed: _showCreatePartnerDialog,
-                        icon: const Icon(Icons.add_business_outlined),
+                        icon: const Icon(Icons.add_business_rounded, size: 20),
                         label: const Text('Nueva tienda'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
-                    'Cuentas asociadas que pueden operar con eVeta. Inician sesión en el portal con el correo y contraseña que asignes.',
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                    'Toca una tienda para ver sus productos como en la app. El ícono de ajustes abre la edición de datos de la tienda.',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.35),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   if (_partners.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 28),
                       child: Center(
                         child: Text(
                           'Aún no hay otras tiendas. Pulsa «Nueva tienda» para crear una cuenta de vendedor.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey.shade600),
+                          style: TextStyle(color: Colors.grey.shade600, height: 1.4),
                         ),
                       ),
                     )
@@ -365,26 +417,16 @@ class _StoresHubScreenState extends State<StoresHubScreen> {
                       final name = p['shop_name']?.toString().trim();
                       final sub = p['email']?.toString() ?? '';
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Card(
-                          clipBehavior: Clip.antiAlias,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.grey.shade200,
-                              child: const Icon(Icons.verified_outlined, color: Color(0xFF09CB6B)),
-                            ),
-                            title: Text(
-                              (name != null && name.isNotEmpty) ? name : 'Sin nombre',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: Text(
-                              sub,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: id.isEmpty ? null : () => _openPartner(id),
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _minimalStoreTile(
+                          onTap: id.isEmpty ? null : () => _openPartner(p),
+                          leading: CircleAvatar(
+                            radius: 22,
+                            backgroundColor: Colors.grey.shade100,
+                            child: const Icon(Icons.verified_rounded, color: Color(0xFF09CB6B)),
                           ),
+                          title: (name != null && name.isNotEmpty) ? name : 'Sin nombre',
+                          subtitle: sub,
                         ),
                       );
                     }),

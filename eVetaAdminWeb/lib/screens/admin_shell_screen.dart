@@ -37,73 +37,134 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     ];
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF0F2F5),
       body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          NavigationRail(
-            selectedIndex: _index,
-            onDestinationSelected: (value) => setState(() => _index = value),
-            labelType: NavigationRailLabelType.all,
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: Text('Dashboard'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE5E8EC)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-              NavigationRailDestination(
-                icon: Icon(Icons.campaign_outlined),
-                selectedIcon: Icon(Icons.campaign),
-                label: Text('Promociones'),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: NavigationRail(
+                  selectedIndex: _index,
+                  onDestinationSelected: (value) => setState(() => _index = value),
+                  labelType: NavigationRailLabelType.all,
+                  useIndicator: true,
+                  minWidth: 76,
+                  groupAlignment: -0.2,
+                  leading: Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 20),
+                    child: Text(
+                      'eVeta',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        letterSpacing: -0.3,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  destinations: const [
+                    NavigationRailDestination(
+                      icon: Icon(Icons.dashboard_outlined),
+                      selectedIcon: Icon(Icons.dashboard_rounded),
+                      label: Text('Dashboard'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.campaign_outlined),
+                      selectedIcon: Icon(Icons.campaign_rounded),
+                      label: Text('Promos'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.inventory_2_outlined),
+                      selectedIcon: Icon(Icons.inventory_2_rounded),
+                      label: Text('Categorías'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.shopping_basket_outlined),
+                      selectedIcon: Icon(Icons.shopping_basket_rounded),
+                      label: Text('Productos'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.storefront_outlined),
+                      selectedIcon: Icon(Icons.storefront_rounded),
+                      label: Text('Tiendas'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.receipt_long_outlined),
+                      selectedIcon: Icon(Icons.receipt_long_rounded),
+                      label: Text('Pedidos'),
+                    ),
+                  ],
+                ),
               ),
-              NavigationRailDestination(
-                icon: Icon(Icons.inventory_2_outlined),
-                selectedIcon: Icon(Icons.inventory_2),
-                label: Text('Categorías'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.shopping_basket_outlined),
-                selectedIcon: Icon(Icons.shopping_basket),
-                label: Text('Productos'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.store_mall_directory_outlined),
-                selectedIcon: Icon(Icons.store_mall_directory),
-                label: Text('Tiendas'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                selectedIcon: Icon(Icons.receipt_long),
-                label: Text('Pedidos'),
-              ),
-            ],
+            ),
           ),
-          const VerticalDivider(width: 1),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        _titles[_index],
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
+              padding: const EdgeInsets.all(12),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE5E8EC)),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              _titles[_index],
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.4,
+                                color: Colors.grey.shade900,
+                              ),
+                            ),
+                            const Spacer(),
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                await AuthService.signOut();
+                              },
+                              icon: const Icon(Icons.logout_rounded, size: 18),
+                              label: const Text('Salir'),
+                            ),
+                          ],
                         ),
-                      ),
-                      const Spacer(),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          await AuthService.signOut();
-                        },
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Cerrar sesión'),
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        Text(
+                          'Panel de administración',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Expanded(child: sections[_index]),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  Expanded(child: sections[_index]),
-                ],
+                ),
               ),
             ),
           ),

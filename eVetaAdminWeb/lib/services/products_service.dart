@@ -196,12 +196,18 @@ class ProductsService {
   static Future<List<Map<String, dynamic>>> fetchMyProducts() async {
     final user = _client.auth.currentUser;
     if (user == null) return [];
+    return fetchProductsForSeller(user.id);
+  }
+
+  /// Productos de una tienda (mismo `seller_id` que en `profiles.id`).
+  static Future<List<Map<String, dynamic>>> fetchProductsForSeller(String sellerId) async {
+    if (sellerId.isEmpty) return [];
 
     Future<List<Map<String, dynamic>>> query(String columns) async {
       final data = await _client
           .from('products')
           .select(columns)
-          .eq('seller_id', user.id)
+          .eq('seller_id', sellerId)
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(data);
     }
@@ -220,7 +226,6 @@ class ProductsService {
           rethrow;
         }
       }
-      // Si aún no existe la columna images_layout (script 011 no ejecutado).
       if (msg.contains('images_layout')) {
         return await query(_selectMyProductsBasic);
       }
