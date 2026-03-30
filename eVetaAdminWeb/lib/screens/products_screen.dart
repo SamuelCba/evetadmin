@@ -351,78 +351,80 @@ class _ProductsScreenState extends State<ProductsScreen> {
         var orderedLayouts = _parseImagesLayoutFromRow(existing?['images_layout'], orderedUrls.length);
         String? coverUrl = orderedUrls.isNotEmpty ? orderedUrls.first : null;
 
-        Future<void> addImagesFromFiles(List<XFile> files) async {
-          if (files.isEmpty) return;
-          setDialogState(() => uploading = true);
-          try {
-            for (final f in files) {
-              final bytes = await f.readAsBytes();
-              if (bytes.isEmpty) continue;
-              final meta = await _analyzeImageLayout(bytes);
-              if (!dialogCtx.mounted) return;
-              final url = await CloudinaryService.uploadImage(
-                bytes: bytes,
-                fileName: f.name.isNotEmpty ? f.name : 'product.jpg',
-                folder: 'eveta/products',
-              );
-              orderedUrls.add(url);
-              orderedLayouts.add(meta);
-              coverUrl ??= url;
-              setDialogState(() {});
-            }
-          } finally {
-            setDialogState(() => uploading = false);
-          }
-        }
-
-        Future<void> _pickImagesWithSourcePrompt() async {
-          final source = await showModalBottomSheet<ImageSource>(
-            context: dialogCtx,
-            showDragHandle: true,
-            builder: (sheetCtx) => SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const ListTile(
-                    title: Text('Agregar fotos'),
-                    subtitle: Text('Elige de dónde subirlas'),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.photo_library_outlined),
-                    title: const Text('Galería'),
-                    onTap: () => Navigator.pop(sheetCtx, ImageSource.gallery),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.photo_camera_outlined),
-                    title: const Text('Cámara'),
-                    onTap: () => Navigator.pop(sheetCtx, ImageSource.camera),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
-          );
-          if (source == null) return;
-          if (source == ImageSource.camera) {
-            final x = await _imagePicker.pickImage(
-              source: ImageSource.camera,
-              imageQuality: 92,
-              maxWidth: 2200,
-            );
-            if (x == null) return;
-            await addImagesFromFiles([x]);
-            return;
-          }
-
-          final xs = await _imagePicker.pickMultiImage(
-            imageQuality: 92,
-            maxWidth: 2200,
-          );
-          await addImagesFromFiles(xs);
-        }
-
         return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) => AlertDialog(
+          builder: (dialogCtx, setDialogState) {
+            Future<void> addImagesFromFiles(List<XFile> files) async {
+              if (files.isEmpty) return;
+              setDialogState(() => uploading = true);
+              try {
+                for (final f in files) {
+                  final bytes = await f.readAsBytes();
+                  if (bytes.isEmpty) continue;
+                  final meta = await _analyzeImageLayout(bytes);
+                  if (!dialogCtx.mounted) return;
+                  final url = await CloudinaryService.uploadImage(
+                    bytes: bytes,
+                    fileName: f.name.isNotEmpty ? f.name : 'product.jpg',
+                    folder: 'eveta/products',
+                  );
+                  orderedUrls.add(url);
+                  orderedLayouts.add(meta);
+                  coverUrl ??= url;
+                  setDialogState(() {});
+                }
+              } finally {
+                setDialogState(() => uploading = false);
+              }
+            }
+
+            Future<void> pickImagesWithSourcePrompt() async {
+              final source = await showModalBottomSheet<ImageSource>(
+                context: dialogCtx,
+                showDragHandle: true,
+                builder: (sheetCtx) => SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const ListTile(
+                        title: Text('Agregar fotos'),
+                        subtitle: Text('Elige de dónde subirlas'),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.photo_library_outlined),
+                        title: const Text('Galería'),
+                        onTap: () => Navigator.pop(sheetCtx, ImageSource.gallery),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.photo_camera_outlined),
+                        title: const Text('Cámara'),
+                        onTap: () => Navigator.pop(sheetCtx, ImageSource.camera),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              );
+              if (source == null) return;
+
+              if (source == ImageSource.camera) {
+                final x = await _imagePicker.pickImage(
+                  source: ImageSource.camera,
+                  imageQuality: 92,
+                  maxWidth: 2200,
+                );
+                if (x == null) return;
+                await addImagesFromFiles([x]);
+                return;
+              }
+
+              final xs = await _imagePicker.pickMultiImage(
+                imageQuality: 92,
+                maxWidth: 2200,
+              );
+              await addImagesFromFiles(xs);
+            }
+
+            return AlertDialog(
             title: Text(existing == null ? 'Subir producto' : 'Editar producto'),
             content: SizedBox(
               width: 560,
@@ -742,7 +744,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           onPressed: uploading
                               ? null
                               : () async {
-                                  await _pickImagesWithSourcePrompt();
+                                  await pickImagesWithSourcePrompt();
                                 },
                           icon: const Icon(Icons.add_photo_alternate),
                           label: const Text('Agregar fotos'),
@@ -825,7 +827,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 child: const Text('Guardar'),
               ),
             ],
-          ),
+          );
+          },
         );
       },
     );
