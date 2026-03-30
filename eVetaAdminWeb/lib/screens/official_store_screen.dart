@@ -67,6 +67,7 @@ class _OfficialStoreScreenState extends State<OfficialStoreScreen> {
         folder: 'eveta/official_store/logo',
       );
       if (mounted) setState(() {});
+      await _persistAfterImageChange('Logo guardado.');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -93,8 +94,42 @@ class _OfficialStoreScreenState extends State<OfficialStoreScreen> {
         folder: 'eveta/official_store/banner',
       );
       if (mounted) setState(() {});
+      await _persistAfterImageChange('Banner guardado.');
     } finally {
       if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _persistAfterImageChange(String successMsg) async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Imagen subida. Completa el nombre de tienda y pulsa «Guardar» para persistir la URL en Supabase.',
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await AuthService.updateMyStoreProfile(
+        shopName: name,
+        shopDescription: _descCtrl.text.trim(),
+        shopLogoUrl: _logoUrl,
+        shopBannerUrl: _bannerUrl,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMsg)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar la URL: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 

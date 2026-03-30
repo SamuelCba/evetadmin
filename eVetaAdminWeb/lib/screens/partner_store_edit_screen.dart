@@ -80,6 +80,7 @@ class _PartnerStoreEditScreenState extends State<PartnerStoreEditScreen> {
         folder: 'eveta/partner_stores/${widget.profileId}/logo',
       );
       if (mounted) setState(() {});
+      await _persistAfterImageChange('Logo guardado en la tienda.');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -106,8 +107,44 @@ class _PartnerStoreEditScreenState extends State<PartnerStoreEditScreen> {
         folder: 'eveta/partner_stores/${widget.profileId}/banner',
       );
       if (mounted) setState(() {});
+      await _persistAfterImageChange('Banner guardado en la tienda.');
     } finally {
       if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  /// Tras subir a Cloudinary, persiste URLs en Supabase (antes había que pulsar Guardar aparte).
+  Future<void> _persistAfterImageChange(String successMsg) async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Imagen subida. Pon un nombre de tienda visible y pulsa «Guardar cambios» para guardar la URL en la base de datos.',
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await AuthService.updatePartnerStoreProfileForAdmin(
+        profileId: widget.profileId,
+        shopName: name,
+        shopDescription: _descCtrl.text.trim(),
+        shopLogoUrl: _logoUrl,
+        shopBannerUrl: _bannerUrl,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMsg)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar la URL: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 

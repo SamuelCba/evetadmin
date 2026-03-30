@@ -74,17 +74,28 @@ class AuthService {
       'is_seller': true,
     };
     try {
-      await _client.from('profiles').update(row).eq('id', user.id);
+      final updated = await _client.from('profiles').update(row).eq('id', user.id).select('id');
+      if ((updated as List).isEmpty) {
+        throw AuthException(
+          'La base de datos no aplicó el cambio (0 filas). Revisa políticas RLS en profiles para tu usuario.',
+        );
+      }
     } catch (e) {
+      if (e is AuthException) rethrow;
       if (e.toString().toLowerCase().contains('shop_banner_url')) {
-        await _client.from('profiles').update({
+        final updated = await _client.from('profiles').update({
           'shop_name': shopName.trim(),
           'shop_description': shopDescription.trim(),
           'shop_logo_url': shopLogoUrl,
           // Fallback temporal: avatar_url como banner
           'avatar_url': shopBannerUrl,
           'is_seller': true,
-        }).eq('id', user.id);
+        }).eq('id', user.id).select('id');
+        if ((updated as List).isEmpty) {
+          throw AuthException(
+            'La base de datos no aplicó el cambio (0 filas). Revisa políticas RLS en profiles.',
+          );
+        }
         return;
       }
       rethrow;
@@ -163,16 +174,27 @@ class AuthService {
       'is_seller': true,
     };
     try {
-      await _client.from('profiles').update(row).eq('id', profileId);
+      final updated = await _client.from('profiles').update(row).eq('id', profileId).select('id');
+      if ((updated as List).isEmpty) {
+        throw AuthException(
+          'No se actualizó la tienda (0 filas). El admin necesita permiso UPDATE (y SELECT de respuesta) en profiles para ese vendedor.',
+        );
+      }
     } catch (e) {
+      if (e is AuthException) rethrow;
       if (e.toString().toLowerCase().contains('shop_banner_url')) {
-        await _client.from('profiles').update({
+        final updated = await _client.from('profiles').update({
           'shop_name': shopName.trim(),
           'shop_description': shopDescription.trim(),
           'shop_logo_url': shopLogoUrl,
           'avatar_url': shopBannerUrl,
           'is_seller': true,
-        }).eq('id', profileId);
+        }).eq('id', profileId).select('id');
+        if ((updated as List).isEmpty) {
+          throw AuthException(
+            'No se actualizó la tienda (0 filas). Revisa políticas RLS en profiles.',
+          );
+        }
         return;
       }
       rethrow;

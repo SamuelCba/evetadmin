@@ -29,9 +29,9 @@ class AdminWebApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF09CB6B),
           brightness: Brightness.light,
-          surface: const Color(0xFFF4F5F7),
+          surface: Colors.white,
         ),
-        scaffoldBackgroundColor: const Color(0xFFF0F2F5),
+        scaffoldBackgroundColor: Colors.white,
         cardTheme: CardThemeData(
           elevation: 0,
           color: Colors.white,
@@ -66,16 +66,17 @@ class AdminWebApp extends StatelessWidget {
             borderSide: const BorderSide(color: Color(0xFF09CB6B), width: 1.5),
           ),
         ),
-        appBarTheme: const AppBarTheme(
+        appBarTheme: AppBarTheme(
           elevation: 0,
           scrolledUnderElevation: 0,
           centerTitle: false,
-          backgroundColor: Color(0xFF09CB6B),
-          foregroundColor: Colors.white,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.grey.shade900,
+          surfaceTintColor: Colors.white,
           titleTextStyle: TextStyle(
-            color: Colors.white,
+            color: Colors.grey.shade900,
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
         navigationRailTheme: NavigationRailThemeData(

@@ -2,13 +2,15 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/product_form_data.dart';
 import '../services/cloudinary_service.dart';
 import '../utils/cloudinary_image_url.dart';
 import '../services/products_service.dart';
+
+final ImagePicker _imagePicker = ImagePicker();
 
 String? _firstProductImageUrl(Map<String, dynamic> product) {
   final images = product['images'];
@@ -349,9 +351,79 @@ class _ProductsScreenState extends State<ProductsScreen> {
         var orderedLayouts = _parseImagesLayoutFromRow(existing?['images_layout'], orderedUrls.length);
         String? coverUrl = orderedUrls.isNotEmpty ? orderedUrls.first : null;
 
+        Future<void> addImagesFromFiles(List<XFile> files) async {
+          if (files.isEmpty) return;
+          setDialogState(() => uploading = true);
+          try {
+            for (final f in files) {
+              final bytes = await f.readAsBytes();
+              if (bytes.isEmpty) continue;
+              final meta = await _analyzeImageLayout(bytes);
+              if (!dialogCtx.mounted) return;
+              final url = await CloudinaryService.uploadImage(
+                bytes: bytes,
+                fileName: f.name.isNotEmpty ? f.name : 'product.jpg',
+                folder: 'eveta/products',
+              );
+              orderedUrls.add(url);
+              orderedLayouts.add(meta);
+              coverUrl ??= url;
+              setDialogState(() {});
+            }
+          } finally {
+            setDialogState(() => uploading = false);
+          }
+        }
+
+        Future<void> _pickImagesWithSourcePrompt() async {
+          final source = await showModalBottomSheet<ImageSource>(
+            context: dialogCtx,
+            showDragHandle: true,
+            builder: (sheetCtx) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const ListTile(
+                    title: Text('Agregar fotos'),
+                    subtitle: Text('Elige de dónde subirlas'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.photo_library_outlined),
+                    title: const Text('Galería'),
+                    onTap: () => Navigator.pop(sheetCtx, ImageSource.gallery),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.photo_camera_outlined),
+                    title: const Text('Cámara'),
+                    onTap: () => Navigator.pop(sheetCtx, ImageSource.camera),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          );
+          if (source == null) return;
+          if (source == ImageSource.camera) {
+            final x = await _imagePicker.pickImage(
+              source: ImageSource.camera,
+              imageQuality: 92,
+              maxWidth: 2200,
+            );
+            if (x == null) return;
+            await addImagesFromFiles([x]);
+            return;
+          }
+
+          final xs = await _imagePicker.pickMultiImage(
+            imageQuality: 92,
+            maxWidth: 2200,
+          );
+          await addImagesFromFiles(xs);
+        }
+
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) => AlertDialog(
-            title: Text(existing == null ? 'Nuevo producto' : 'Editar producto'),
+            title: Text(existing == null ? 'Subir producto' : 'Editar producto'),
             content: SizedBox(
               width: 560,
               child: SingleChildScrollView(
@@ -527,163 +599,138 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     if (orderedUrls.isEmpty)
                       const Text('Aún no agregaste fotos.')
                     else
-                      SizedBox(
-                        height: 112,
-                        child: ReorderableListView(
-                          scrollDirection: Axis.horizontal,
-                          shrinkWrap: true,
-                          buildDefaultDragHandles: false,
-                          physics: const ClampingScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-                          onReorder: (oldIndex, newIndex) {
-                            setDialogState(() {
-                              if (newIndex > oldIndex) newIndex -= 1;
-                              final u = orderedUrls.removeAt(oldIndex);
-                              final m = orderedLayouts.removeAt(oldIndex);
-                              orderedUrls.insert(newIndex, u);
-                              orderedLayouts.insert(newIndex, m);
-                            });
-                          },
-                          children: [
-                            for (var i = 0; i < orderedUrls.length; i++)
-                              ReorderableDragStartListener(
-                                key: ValueKey(orderedUrls[i]),
-                                index: i,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: SizedBox(
-                                    width: 86,
-                                    height: 100,
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        Positioned.fill(
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(10),
-                                                    border: Border.all(
-                                                      color: orderedUrls[i] == coverUrl
-                                                          ? Theme.of(dialogCtx).colorScheme.primary
-                                                          : Colors.grey.shade400,
-                                                      width: orderedUrls[i] == coverUrl ? 2.5 : 1,
-                                                    ),
-                                                    color: Colors.grey.shade100,
-                                                  ),
-                                                  padding: const EdgeInsets.all(2),
-                                                  child: ClipRRect(
-                                                    borderRadius: BorderRadius.circular(7),
-                                                    child: Image.network(
-                                                      evetaImageDeliveryUrl(
-                                                        orderedUrls[i],
-                                                        EvetaImageDelivery.thumb,
-                                                      ),
-                                                      width: double.infinity,
-                                                      height: double.infinity,
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (context, error, stackTrace) =>
-                                                          ColoredBox(color: Colors.grey.shade200),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              if (orderedUrls[i] == coverUrl)
-                                                Positioned(
-                                                  left: 2,
-                                                  bottom: 2,
-                                                  right: 2,
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 3,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.black.withValues(alpha: 0.7),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: Row(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        const Icon(Icons.star, size: 10, color: Colors.amber),
-                                                        const SizedBox(width: 3),
-                                                        Expanded(
-                                                          child: Text(
-                                                            'Se verá en el producto',
-                                                            maxLines: 2,
-                                                            overflow: TextOverflow.ellipsis,
-                                                            style: TextStyle(
-                                                              color: Colors.white,
-                                                              fontSize: 8,
-                                                              fontWeight: FontWeight.w600,
-                                                              height: 1.05,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              if (orderedUrls[i] != coverUrl)
-                                                Positioned(
-                                                  left: 2,
-                                                  bottom: 2,
-                                                  child: Material(
-                                                    color: Colors.transparent,
-                                                    child: InkWell(
-                                                      onTap: uploading
-                                                          ? null
-                                                          : () {
-                                                              coverUrl = orderedUrls[i];
-                                                              setDialogState(() {});
-                                                            },
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      child: Tooltip(
-                                                        message: 'Esta será la imagen en la tarjeta (se guarda como primera)',
-                                                        child: Container(
-                                                          padding: const EdgeInsets.all(3),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.black.withValues(alpha: 0.55),
-                                                            borderRadius: BorderRadius.circular(4),
-                                                          ),
-                                                          child: const Icon(
-                                                            Icons.star_outline,
-                                                            size: 16,
-                                                            color: Colors.white,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              Positioned(
-                                                right: -10,
-                                                top: -10,
-                                                child: IconButton(
-                                                  tooltip: 'Quitar foto',
-                                                  onPressed: uploading
-                                                      ? null
-                                                      : () {
-                                                          final removed = orderedUrls[i];
-                                                          orderedUrls.removeAt(i);
-                                                          if (i < orderedLayouts.length) {
-                                                            orderedLayouts.removeAt(i);
-                                                          }
-                                                          if (coverUrl == removed) {
-                                                            coverUrl =
-                                                                orderedUrls.isNotEmpty ? orderedUrls.first : null;
-                                                          }
-                                                          _syncImagesLayoutToImages(orderedUrls, orderedLayouts);
-                                                          setDialogState(() {});
-                                                        },
-                                                  icon: const Icon(Icons.close, size: 18),
-                                                ),
-                                              ),
-                                            ],
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (var i = 0; i < orderedUrls.length; i++)
+                            SizedBox(
+                              width: 86,
+                              height: 100,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: orderedUrls[i] == coverUrl
+                                              ? Theme.of(dialogCtx).colorScheme.primary
+                                              : Colors.grey.shade400,
+                                          width: orderedUrls[i] == coverUrl ? 2.5 : 1,
+                                        ),
+                                        color: Colors.grey.shade100,
+                                      ),
+                                      padding: const EdgeInsets.all(2),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(7),
+                                        child: Image.network(
+                                          evetaImageDeliveryUrl(
+                                            orderedUrls[i],
+                                            EvetaImageDelivery.thumb,
+                                          ),
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              ColoredBox(color: Colors.grey.shade200),
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                  if (orderedUrls[i] == coverUrl)
+                                    Positioned(
+                                      left: 2,
+                                      bottom: 2,
+                                      right: 2,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.7),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Icon(Icons.star, size: 10, color: Colors.amber),
+                                            const SizedBox(width: 3),
+                                            Expanded(
+                                              child: Text(
+                                                'Se verá en el producto',
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 8,
+                                                  fontWeight: FontWeight.w600,
+                                                  height: 1.05,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  if (orderedUrls[i] != coverUrl)
+                                    Positioned(
+                                      left: 2,
+                                      bottom: 2,
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: uploading
+                                              ? null
+                                              : () {
+                                                  coverUrl = orderedUrls[i];
+                                                  setDialogState(() {});
+                                                },
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: Tooltip(
+                                            message:
+                                                'Esta será la imagen en la tarjeta (se guarda como primera)',
+                                            child: Container(
+                                              padding: const EdgeInsets.all(3),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(alpha: 0.55),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: const Icon(
+                                                Icons.star_outline,
+                                                size: 16,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  Positioned(
+                                    right: -10,
+                                    top: -10,
+                                    child: IconButton(
+                                      tooltip: 'Quitar foto',
+                                      onPressed: uploading
+                                          ? null
+                                          : () {
+                                              final removed = orderedUrls[i];
+                                              orderedUrls.removeAt(i);
+                                              if (i < orderedLayouts.length) {
+                                                orderedLayouts.removeAt(i);
+                                              }
+                                              if (coverUrl == removed) {
+                                                coverUrl = orderedUrls.isNotEmpty ? orderedUrls.first : null;
+                                              }
+                                              _syncImagesLayoutToImages(orderedUrls, orderedLayouts);
+                                              setDialogState(() {});
+                                            },
+                                      icon: const Icon(Icons.close, size: 18),
+                                    ),
+                                  ),
+                                ],
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
 
                     const SizedBox(height: 10),
@@ -695,36 +742,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           onPressed: uploading
                               ? null
                               : () async {
-                                  final picked = await FilePicker.platform.pickFiles(
-                                    type: FileType.image,
-                                    allowMultiple: true,
-                                    withData: true,
-                                  );
-                                  final files = picked?.files ?? [];
-                                  if (files.isEmpty) return;
-
-                                  setDialogState(() => uploading = true);
-                                  try {
-                                    for (final file in files) {
-                                      final bytes = file.bytes;
-                                      if (bytes == null) continue;
-
-                                      final meta = await _analyzeImageLayout(bytes);
-                                      if (!dialogCtx.mounted) return;
-
-                                      final url = await CloudinaryService.uploadImage(
-                                        bytes: bytes,
-                                        fileName: file.name.isNotEmpty ? file.name : 'product.jpg',
-                                        folder: 'eveta/products',
-                                      );
-                                      orderedUrls.add(url);
-                                      orderedLayouts.add(meta);
-                                      coverUrl ??= url;
-                                      setDialogState(() {});
-                                    }
-                                  } finally {
-                                    setDialogState(() => uploading = false);
-                                  }
+                                  await _pickImagesWithSourcePrompt();
                                 },
                           icon: const Icon(Icons.add_photo_alternate),
                           label: const Text('Agregar fotos'),
@@ -844,7 +862,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           child: FilledButton.icon(
             onPressed: () => _openForm(),
             icon: const Icon(Icons.add),
-            label: const Text('Nuevo producto'),
+            label: const Text('Subir producto'),
           ),
         ),
         const SizedBox(height: 12),

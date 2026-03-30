@@ -37,7 +37,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
+      backgroundColor: Colors.white,
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
